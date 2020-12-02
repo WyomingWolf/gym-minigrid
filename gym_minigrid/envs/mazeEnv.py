@@ -1,5 +1,6 @@
 from gym_minigrid.minigrid import *
 from gym_minigrid.register import register
+from operator import add
 import numpy as np
 
 class MazeEnv(MiniGridEnv):
@@ -14,13 +15,15 @@ class MazeEnv(MiniGridEnv):
         lava_prob=0, # float(0-0.2); chance to add lava float(0-0.2)
         obstacle_level=0, # float(0-5); increase obstacles
         box2ball=0, # flaot(0-1) chance to convert box to ball
+        dynamic_prob=0, # flaot(0-1) chance for ball to be dynamic
         door_prob=0, # float(0-0.5); chance to add doors
-        lock_prob=0, # float(0-0.5); chance to add locked doors and keys
+        lock_prob=0, # float(0-0.5); chance to add locked doors and keys NOT IMPLEMENTED YET
         wall_prob=1, # float(0-1); cahnce to keep wall
         agent_start_pos=(1,1),
         agent_start_dir=0,
         seed=0
     ):
+        # class attributes
         self.agent_start_pos = agent_start_pos
         self.agent_start_dir = agent_start_dir
         self.size = pow(2,size+1)+1
@@ -28,16 +31,14 @@ class MazeEnv(MiniGridEnv):
         self.lava_prob = lava_prob
         self.obstacle_level = obstacle_level
         self.box2ball = box2ball
+        self.dynamic_prob = dynamic_prob
         self.door_prob = door_prob
         self.lock_prob = lock_prob
         self.wall_prob = wall_prob
+
+        self.dynamic_obstacles = [] # list of dynamic obstacles
+        self.reward_range = (-1, 1)
         
-        '''
-        if self.door_level > 1:
-            self.lock = True
-        else:
-            self.lock = False
-        '''
         super().__init__(
             grid_size = self.size,
             max_steps = 4*self.size*self.size,
@@ -57,7 +58,7 @@ class MazeEnv(MiniGridEnv):
         if self.limit < self.size:
             self._recursive_division(1, 1, self.size-2, self.limit, 0)
 
-        # place moveable objeccts
+        # place obstacles
         if self.obstacle_level > 0:
             num_obstacle = int(self.size*self.obstacle_level)
             for i in range(num_obstacle):
@@ -65,13 +66,16 @@ class MazeEnv(MiniGridEnv):
                 x = self._rand_int(0, int((self.size-1)/2))*2+1
                 y = self._rand_int(0, int((self.size-1)/2))*2+1
                 if (x > 1 or y > 1) and self.grid.get(x, y)==None: # can't populate agent start position
-                    obj = Box
-                    color = 'blue'
-                    prob = self._rand_float(0,1) # change box to ball
-                    if prob < self.box2ball:
-                        obj = Ball
-                        color = 'yellow'
-                    self.put_obj(obj(color), x, y)
+                    obj = None
+                    if self._rand_float(0,1) < self.box2ball: # change box to ball
+                        if self._rand_float(0,1) < self.dynamic_prob: # make ball dynamic
+                            self.dynamic_obstacles.append(Ball('yellow'))
+                            obj = self.dynamic_obstacles[-1]
+                        else:
+                            obj = Ball('yellow')
+                    else:
+                        obj = Box('blue')
+                    self.put_obj(obj, x, y)
 
         # Place a goal square in the bottom-right corner
         self.put_obj(Goal(), width-2, height-2)
@@ -182,6 +186,38 @@ class MazeEnv(MiniGridEnv):
                     if i != gap:
                         self.grid.set(x+div, y+i, Lava())  
 
+    def step(self, action):
+
+        # Check if there is an obstacle in front of the agent
+        front_cell = self.grid.get(*self.front_pos)
+        not_clear = front_cell and (front_cell.type != 'goal') 
+        # check for door states
+        if front_cell and front_cell.type == 'door': 
+            not_clear = not front_cell.is_open
+        print(not_clear)
+
+        # Update dynamic obstacle positions
+        for i_obst in range(len(self.dynamic_obstacles)):
+            old_pos = self.dynamic_obstacles[i_obst].cur_pos
+            top = tuple(map(add, old_pos, (-1, -1)))
+
+            try:
+                self.place_obj(self.dynamic_obstacles[i_obst], top=top, size=(3,3), max_tries=100)
+                self.grid.set(*old_pos, None)
+            except:
+                pass
+
+        # Update the agent's position/direction
+        obs, reward, done, info = MiniGridEnv.step(self, action)
+
+        # If the agent tried to walk over an obstacle or wall
+        if action == self.actions.forward and not_clear:
+            reward = -1
+            #done = True
+            return obs, reward, done, info
+
+        return obs, reward, done, info
+
 
 # empty room
 class EmptyEnv5x5(MazeEnv):
@@ -217,6 +253,12 @@ class MazeEnv17x17(MazeEnv):
 class MazeEnv33x33(MazeEnv):
     def __init__(self, **kwargs):
         super().__init__(size=4, 
+                         lava_prob=0.1, 
+                         obstacle_level=2.5,
+                         box2ball=0.2,
+                         dynamic_prob=0.5,
+                         door_prob=0.2,
+                         wall_prob=0.9,
                          **kwargs)
 
 # large maze w/ large rooms
@@ -226,6 +268,7 @@ class MazeEnv65x65(MazeEnv):
                          lava_prob=0.1, 
                          obstacle_level=2.5,
                          box2ball=0.2,
+                         dynamic_prob=0.5,
                          door_prob=0.2,
                          wall_prob=0.9,
                          **kwargs)
