@@ -216,7 +216,7 @@ class MazeEnv(MiniGridEnv):
             #done = True
             #return obs, reward, done, info
         # penalty for each step
-        reward  -= 0.05
+        # reward  -= 0.05
         return obs, reward, done, info
 
 
