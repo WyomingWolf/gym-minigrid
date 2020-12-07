@@ -41,7 +41,7 @@ class MazeEnv(MiniGridEnv):
         
         super().__init__(
             grid_size = self.size,
-            max_steps = 4*self.size*self.size,
+            max_steps = 2*self.size*self.size,
             seed = seed,
             # Set this to True for maximum speed
             see_through_walls=True
@@ -212,10 +212,11 @@ class MazeEnv(MiniGridEnv):
 
         # If the agent tried to walk over an obstacle or wall
         if action == self.actions.forward and not_clear:
-            reward = -1
+            reward = -0.95
             #done = True
-            return obs, reward, done, info
-
+            #return obs, reward, done, info
+        # penalty for each step
+        reward  -= 0.05
         return obs, reward, done, info
 
 
