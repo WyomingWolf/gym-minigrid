@@ -72,7 +72,7 @@ class MazeEnv(MiniGridEnv):
                             self.dynamic_obstacles.append(Ball('yellow'))
                             obj = self.dynamic_obstacles[-1]
                         else:
-                            obj = Ball('yellow')
+                            obj = Ball('yellow') # static ball
                     else:
                         obj = Box('blue')
                     self.put_obj(obj, x, y)
