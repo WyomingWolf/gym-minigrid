@@ -194,7 +194,7 @@ class MazeEnv(MiniGridEnv):
         # check for door states
         if front_cell and front_cell.type == 'door': 
             not_clear = not front_cell.is_open
-        print(not_clear)
+        #print(not_clear)
 
         # Update dynamic obstacle positions
         for i_obst in range(len(self.dynamic_obstacles)):
