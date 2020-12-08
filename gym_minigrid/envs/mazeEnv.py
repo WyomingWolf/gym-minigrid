@@ -194,7 +194,7 @@ class MazeEnv(MiniGridEnv):
         # check for door states
         if front_cell and front_cell.type == 'door': 
             not_clear = not front_cell.is_open
-        print(not_clear)
+        #print(not_clear)
 
         # Update dynamic obstacle positions
         for i_obst in range(len(self.dynamic_obstacles)):
@@ -210,13 +210,22 @@ class MazeEnv(MiniGridEnv):
         # Update the agent's position/direction
         obs, reward, done, info = MiniGridEnv.step(self, action)
 
-        # If the agent tried to walk over an obstacle or wall
-        if action == self.actions.forward and not_clear:
-            reward = -0.95
-            #done = True
-            #return obs, reward, done, info
-        # penalty for each step
-        # reward  -= 0.05
+        if done: # The episode ended
+            if self.step_count < self.max_steps: # The agent didn't run out of time
+                if reward > 0.0: # The agent completed the maze
+                    reward = 100 # A very high success reward
+                else: # The agent hit lava or some other issue
+                    reward = -5 # A relatively high penalty
+            else: # The agent ran out of time
+                reward = -0.05 # Just penalize for an action taken
+        else: # Episode isn't over yet
+            # If the agent tried to walk over an obstacle or wall
+            if action == self.actions.forward and not_clear:
+                reward = -0.10
+            else: # The agent completed an allowed move
+                # penalty for each step
+                reward  = -0.05
+
         return obs, reward, done, info
 
 
